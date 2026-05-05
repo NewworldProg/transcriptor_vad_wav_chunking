@@ -3,8 +3,10 @@ sys.path.insert(0, "..")
 
 import tempfile
 import wave
+import json
+import base64
 from pathlib import Path
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 import numpy as np
 
@@ -61,6 +63,76 @@ async def transcribe(file: UploadFile = File(...)):
 @app.get("/health")
 async def health():
     return {"status": "ok", "transcriber_loaded": transcriber is not None}
+
+
+@app.websocket("/ws/parakeet-stt")
+async def ws_parakeet_stt(websocket: WebSocket):
+    """WebSocket endpoint for streaming Parakeet transcription.
+    
+    Expected message format:
+    - Binary: raw PCM16 mono audio chunks
+    - Text: JSON commands
+        {"type": "flush"} - transcribe accumulated buffer
+        {"type": "reset"} - clear buffer without transcribing
+    """
+    await websocket.accept()
+    
+    if transcriber is None:
+        await websocket.send_json({"error": "Transcriber not loaded"})
+        await websocket.close()
+        return
+    
+    try:
+        buffer = np.array([], dtype=np.float32)
+        chunk_index = 0
+        
+        await websocket.send_json({
+            "type": "ready",
+            "message": "Ready for Parakeet transcription",
+            "sample_rate": 16000
+        })
+        
+        while True:
+            message = await websocket.receive()
+            
+            # Text message: control commands
+            if "text" in message and message["text"] is not None:
+                text_payload = message["text"].strip()
+                
+                if text_payload.lower() == "flush":
+                    if buffer.size > 0:
+                        try:
+                            text = transcriber._transcribe_segment(buffer)
+                            await websocket.send_json({
+                                "type": "transcription",
+                                "index": chunk_index,
+                                "text": text
+                            })
+                            chunk_index += 1
+                        except Exception as e:
+                            await websocket.send_json({
+                                "type": "error",
+                                "detail": str(e)
+                            })
+                        finally:
+                            buffer = np.array([], dtype=np.float32)
+                    
+                    await websocket.send_json({"type": "flushed"})
+                
+                elif text_payload.lower() == "reset":
+                    buffer = np.array([], dtype=np.float32)
+                    await websocket.send_json({"type": "reset_ack"})
+            
+            # Binary message: audio data
+            elif "bytes" in message and message["bytes"] is not None:
+                audio_chunk = np.frombuffer(message["bytes"], dtype=np.int16).astype(np.float32) / 32768.0
+                if audio_chunk.size > 0:
+                    buffer = np.concatenate([buffer, audio_chunk], axis=0)
+    
+    except WebSocketDisconnect:
+        print("Client disconnected from /ws/parakeet-stt")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
 
 
 if __name__ == "__main__":
