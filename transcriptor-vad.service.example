@@ -1,0 +1,20 @@
+[Unit]
+Description=Transcriptor VAD WAV Chunking (Parakeet TDT)
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=luka
+WorkingDirectory=/home/luka/transcriptor_vad_wav_chunking
+Environment=PYTHONUNBUFFERED=1
+Environment=HF_HOME=/home/luka/.cache/huggingface
+ExecStart=/home/luka/transcriptor_vad_wav_chunking/.venv/bin/python /home/luka/transcriptor_vad_wav_chunking/transcribe_microphone_tdt_06b_v3.py
+Restart=always
+RestartSec=3
+
+# Uncomment if your distro needs explicit ALSA/Pulse settings
+# Environment=PULSE_SERVER=unix:/run/user/1000/pulse/native
+# Environment=ALSA_CARD=default
+
+[Install]
+WantedBy=multi-user.target
