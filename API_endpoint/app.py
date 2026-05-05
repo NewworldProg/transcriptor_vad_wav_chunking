@@ -5,12 +5,18 @@ import tempfile
 import wave
 from pathlib import Path
 from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 import numpy as np
 
 # Import existing transcriber
 from transcribe_microphone_tdt_06b_v3 import TDTMicTranscriber
 
 app = FastAPI(title="Transcriptor API", version="1.0.0")
+INTERFACE_DIR = Path(__file__).resolve().parent.parent / "interface_minimal"
+
+if INTERFACE_DIR.exists():
+    app.mount("/interface_minimal", StaticFiles(directory=str(INTERFACE_DIR), html=True), name="interface_minimal")
 
 # Global transcriber instance (loaded once at startup)
 transcriber = None
@@ -70,6 +76,11 @@ async def transcribe(file: UploadFile = File(...)):
 @app.get("/health")
 async def health():
     return {"status": "ok", "transcriber_loaded": transcriber is not None}
+
+
+@app.get("/interface")
+async def interface_redirect():
+    return RedirectResponse(url="/interface_minimal/index.html")
 
 
 @app.websocket("/ws/parakeet-stt")
