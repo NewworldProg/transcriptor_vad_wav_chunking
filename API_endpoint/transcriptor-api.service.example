@@ -8,7 +8,7 @@ User=luka
 WorkingDirectory=/home/luka/transcriptor_vad_wav_chunking/API_endpoint
 Environment=PYTHONUNBUFFERED=1
 Environment=HF_HOME=/home/luka/.cache/huggingface
-ExecStart=/home/luka/transcriptor_vad_wav_chunking/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+ExecStart=/home/luka/transcriptor_vad_wav_chunking/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=3
 
