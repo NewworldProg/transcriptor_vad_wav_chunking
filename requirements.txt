@@ -2,6 +2,3 @@ numpy
 pyaudio
 nemo_toolkit[asr]==2.7.3
 pyarrow
-fastapi
-uvicorn[standard]
-python-multipart
